@@ -12,6 +12,6 @@ A repository of scripts that can be used to monitor energy consumption.
 
     ./measureit.sh cmd
 
-for more details, sue the verbose mode with the option ```-v``` 
+for more details, sue the verbose mode with the option  ```-v``` 
     
     ./measureit.sh -v cmd 

@@ -4,6 +4,7 @@
 
 
 PKG0='/sys/devices/virtual/powercap/intel-rapl/intel-rapl:0/energy_uj'
+MAXPKG0='/sys/devices/virtual/powercap/intel-rapl/intel-rapl:0/max_energy_range_uj'
 # DRAM0='/sys/devices/virtual/powercap/intel-rapl/intel-rapl:0/intel-rapl:0:0/energy_uj'
 # PKG1='/sys/devices/virtual/powercap/intel-rapl/intel-rapl:1/energy_uj'
 # DRAM1='/sys/devices/virtual/powercap/intel-rapl/intel-rapl:1/intel-rapl:1:0/energy_uj'
@@ -39,6 +40,12 @@ endPKG0=` cat $PKG0`
 duration=$((($endT - $beginT)/1000000))
 
 pkg0=$((($endPKG0-$beginPKG0)/1000))
+
+if [[ $pkg0 -le 0 ]]
+then 
+    pkg0=$(($pkg0 + $MAXPKG0))
+fi 
+
 # pkg1=$((($endPKG1-$beginPKG1)/1000))
 # dram0=$((($endDRAM0-$beginDRAM0)/1000))
 # dram1=$((($endDRAM1-$beginDRAM1)/1000))
