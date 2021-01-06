@@ -68,5 +68,5 @@ then
     echo '      duration (ms):'   $duration 
 fi 
 
-echo '      energy (mJ):'        $pkg
-echo '      energy (mJ):'       $dram
+echo '      energy PKG (mJ):'        $pkg
+echo '      energy DRAM (mJ):'       $dram
