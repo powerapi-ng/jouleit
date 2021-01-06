@@ -7,6 +7,7 @@ PKG0='/sys/devices/virtual/powercap/intel-rapl/intel-rapl:0/energy_uj'
 MAXPKG0='/sys/devices/virtual/powercap/intel-rapl/intel-rapl:0/max_energy_range_uj'
 DRAM0='/sys/devices/virtual/powercap/intel-rapl/intel-rapl:0/intel-rapl:0:0/energy_uj'
 PKG1='/sys/devices/virtual/powercap/intel-rapl/intel-rapl:1/energy_uj'
+MAXPKG1='/sys/devices/virtual/powercap/intel-rapl/intel-rapl:1/max_energy_range_uj'
 DRAM1='/sys/devices/virtual/powercap/intel-rapl/intel-rapl:1/intel-rapl:1:0/energy_uj'
 
 while getopts "v" o; do
@@ -53,7 +54,7 @@ pkg1=$((($endPKG1-$beginPKG1)/1000))
 
 if [[ $pkg1 -le 0 ]]
 then 
-    pkg1=$(($pkg1 + $MAXPKG0))
+    pkg1=$(($pkg1 + $MAXPKG1))
 fi 
 
 dram0=$((($endDRAM0-$beginDRAM0)/1000))
