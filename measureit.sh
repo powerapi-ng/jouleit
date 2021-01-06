@@ -53,7 +53,7 @@ pkg1=$((($endPKG1-$beginPKG1)/1000))
 
 if [[ $pkg1 -le 0 ]]
 then 
-    pkg0=$(($pkg1 + $MAXPKG0))
+    pkg1=$(($pkg1 + $MAXPKG0))
 fi 
 
 dram0=$((($endDRAM0-$beginDRAM0)/1000))
@@ -68,5 +68,5 @@ then
     echo '      duration (ms):'   $duration 
 fi 
 
-echo '      energy PKG (mJ):'        $pkg
+echo '      energy CPU (mJ):'        $pkg
 echo '      energy DRAM (mJ):'       $dram
