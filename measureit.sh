@@ -1,73 +1,132 @@
 #!/bin/bash
 
+######### generic functions
+read_energy() {
+    dir=$@
+    energy=""
+    for i in ${dir[@]}; do
+        s=$(cat $i/energy_uj)
+        energy=$energy$s","
+    done
+    echo $energy
+}
 
+read_maxenergy() {
+    dir=$@
+    energy=""
+    for i in ${dir[@]}; do
+        s=$(cat $i/max_energy_range_uj)
+        energy=$energy$s","
+    done
+    echo $energy
+}
 
+calculate_energy() {
+    begins=$1
+    ends=$2
+    maxenergies=$3
+    echo | awk -v ends=$ends -v begins=$begins -v maxenergies=$MAXPKG 'BEGIN \
+{   energiy=0;\
+    split(ends,ends1,","); \
+    split(begins,begins1,","); \
+    split(maxenergies,maxenergies1,","); \
+    for (i in ends1 ) {x= ends1[i] - begins1[i] ;\
+        if (x < 0) {x=x+maxenergies1[i] } ;\
+        energy += x ; \
+    }\
+    printf energy "\n"; \
+} \
+'
+}
 
-PKG0='/sys/devices/virtual/powercap/intel-rapl/intel-rapl:0/energy_uj'
-MAXPKG0='/sys/devices/virtual/powercap/intel-rapl/intel-rapl:0/max_energy_range_uj'
-DRAM0='/sys/devices/virtual/powercap/intel-rapl/intel-rapl:0/intel-rapl:0:0/energy_uj'
-PKG1='/sys/devices/virtual/powercap/intel-rapl/intel-rapl:1/energy_uj'
-MAXPKG1='/sys/devices/virtual/powercap/intel-rapl/intel-rapl:1/max_energy_range_uj'
-DRAM1='/sys/devices/virtual/powercap/intel-rapl/intel-rapl:1/intel-rapl:1:0/energy_uj'
+############### get the paths of each device #######################
 
-while getopts "v" o; do
-    case "${o}" in
-        v) 
-            verbose="True"
-        ;;   
-        esac
+x=$(find /sys/devices/virtual/powercap/intel-rapl -name "name")
+drams=""
+cores=""
+for i in ${x[@]}; do
+    s=$(cat $i)
+    case $s in
+    dram)
+        drams+=${i%name}" "
+        ;;
+    core)
+        cores+=${i%name}" "
+        ;;
+    esac
 done
-shift $((OPTIND-1))
 
+pkgs=$(find /sys/devices/virtual/powercap/intel-rapl/ -name intel-rapl\:[[:digit:]])
 
-beginT=` date +"%s%N"`
-beginPKG0=` cat $PKG0`
-beginDRAM0=` cat $DRAM0`
-beginPKG1=` cat $PKG1`
-beginDRAM1=` cat $DRAM1`
-if [[ -n $verbose ]] 
-then 
-/usr/bin/time -apv $@
-else
-$@
+############# get the max energy window for each device #################
+MAXPKG=$(read_maxenergy $pkgs)
+
+if [ -n "$drams" ]; then
+    MAXDRAM=$(read_maxenergy $drams)
 fi
 
-endT=` date +"%s%N"`
-endPKG0=` cat $PKG0`
-endDRAM0=` cat $DRAM0`
-endPKG1=` cat $PKG1`
-endDRAM1=` cat $DRAM1`
+if [ -n "$cores" ]; then
+    MAXCORES=$(read_maxenergy $cores)
+fi
 
-duration=$((($endT - $beginT)/1000000))
+############# get the  energy  before the begining of the command for each device #################
 
-pkg0=$((($endPKG0-$beginPKG0)/1000))
+beginpkg=$(read_energy $pkgs)
 
-if [[ $pkg0 -le 0 ]]
-then 
-    pkg0=$(($pkg0 + $MAXPKG0))
-fi 
+if [ -n "$drams" ]; then
+    begindram=$(read_energy $drams)
+fi
 
+if [ -n "$cores" ]; then
+    begincore=$(read_energy $cores)
+fi
+beginT=$(date +"%s%N")
+########################## the command
+$@
 
+############# get the  energy  before the machine after the end  of the command for each device #################
+endT=$(date +"%s%N")
 
+endpkg=$(read_energy $pkgs)
 
-pkg1=$((($endPKG1-$beginPKG1)/1000))
+if [ -n "$drams" ]; then
+    enddram=$(read_energy $drams)
+fi
 
-if [[ $pkg1 -le 0 ]]
-then 
-    pkg1=$(($pkg1 + $MAXPKG1))
-fi 
+if [ -n "$cores" ]; then
+    endcore=$(read_energy $cores)
+fi
 
-dram0=$((($endDRAM0-$beginDRAM0)/1000))
-dram1=$((($endDRAM1-$beginDRAM1)/1000))
+## calculate the differences
 
-pkg=$(($pkg0+$pkg1))
-dram=$(($dram0+$dram1))
+duration=$((($endT - $beginT) / 1000000))
 
-# echo 'duration (ms)'   $duration
-if [[ -z $verbose ]] 
-then
-    echo '      duration (ms):'   $duration 
-fi 
+enegypkg=$(calculate_energy $beginpkg $endpkg $MAXPKG)
 
-echo '      energy CPU (mJ):'        $pkg
-echo '      energy DRAM (mJ):'       $dram
+if [ -n "$drams" ]; then
+
+    energydram=$(calculate_energy $begindram $enddram $MAXDRAM)
+
+fi
+
+if [ -n "$cores" ]; then
+    energycore=$(calculate_energy $begincore $endcore $MAXCORE)
+
+fi
+
+#### printing the results
+printf "execution time  : %10d ms\n" $duration
+
+printf 'energy cpu      : %10d uj\n' $enegypkg
+
+if [ -n "$drams" ]; then
+
+    printf 'energy dram     : %10d uj\n' $energydram
+
+fi
+
+if [ -n "$cores" ]; then
+
+    printf 'energy core-cpu : %10d uj\n' $energycore
+
+fi
