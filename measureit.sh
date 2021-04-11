@@ -53,17 +53,32 @@ calculate_energy() {
     split(begins,begins1,";");
     split(maxenergies,maxenergies1,";");
 
-    for (i in ends1 ){
 
+    for (i in ends1 ){
         split(ends1[i],dataends,",")
+        names[dataends[1]]  = dataends[2]
+        energiesends[dataends[1]] =dataends[3]
+    }    
+
+     for (i in begins1 ){
         split(begins1[i],databegins,",")
-        split(maxenergies1[i],datamaxenergies,",")
-        x = dataends[3] - databegins[3]
+        energiesbegins[databegins[1]] =databegins[3]
+    }      
+
+    for (i in maxenergies1 ){
+        split(max1[i],datamax,",")
+        energiesmax[datamax[1]] =datamax[3]
+    }      
+
+
+    for (i in names ){
+
+        x = energiesends[i] - energiesbegins[i]
         if (x < 0 )
             {
-                x=x+datamaxenergies[3]
+                x=x+datamaxenergies[i]
             }
-        printf dataends[1]","dataends[2]","x";"
+        printf i","names[i]","x";" 
         }
 
     }'
@@ -152,8 +167,8 @@ endT=$(date +"%s%N")
 end_energy=$(read_energy)
 
 ### Calculate the energies
+
 energies=$(calculate_energy $begin_energy $end_energy $maxenergies)
-echo $energies
 
 # Remove the last ;
 energies="${energies%;}"
