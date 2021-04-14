@@ -1,12 +1,27 @@
 #!/bin/bash
 
 # the option -v
-while getopts "v" o; do
+
+duration=5
+
+frequency=1
+while getopts "vnd:f:" o; do
     case "${o}" in
     v)
         verbose="True"
         ;;
+    d)
+        duration=${OPTARG}
+        ;;
+    f)
+        frequency=${OPTARG}
+        ;;
+    n)
+        net="True"
+        ;;
+
     esac
+
 done
 
 shift $((OPTIND - 1))
@@ -154,32 +169,39 @@ print_global() {
 
 }
 
+get_raw_energy() {
+    begin_energy=$(read_energy)
+    beginT=$(date +"%s%N")
+
+    ###############################################
+    $@
+    ###############################################
+    endT=$(date +"%s%N")
+    end_energy=$(read_energy)
+
+    ### Calculate the energies
+
+    energies=$(calculate_energy $begin_energy $end_energy $maxenergies)
+
+    # Remove the last ;
+    energies="${energies%;}"
+    # Change package with CPU
+    energies=$(echo $energies | sed -r 's/package-([0-9]+)/cpu/g')
+
+    ## Visualisation
+    print_time $beginT $endT
+    print_header
+    print_global $energies
+
+    if [ -n "$verbose" ]; then
+        print_details $energies
+    fi
+}
 ###############################
 maxenergies=$(read_maxenergy)
 
-begin_energy=$(read_energy)
-beginT=$(date +"%s%N")
+get_raw_energy $@
 
-###############################################
-$@
-###############################################
-endT=$(date +"%s%N")
-end_energy=$(read_energy)
-
-### Calculate the energies
-
-energies=$(calculate_energy $begin_energy $end_energy $maxenergies)
-
-# Remove the last ;
-energies="${energies%;}"
-# Change package with CPU
-energies=$(echo $energies | sed -r 's/package-([0-9]+)/cpu/g')
-
-## Visualisation
-print_time $beginT $endT
-print_header
-print_global $energies
-
-if [ -n "$verbose" ]; then
-    print_details $energies
-fi
+# totalsteps=$((duration * frequency))
+# step=$(echo $frequency | awk '{printf 1/$1}')
+# echo $step
