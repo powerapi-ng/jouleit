@@ -5,7 +5,7 @@
 duration=5
 
 frequency=1
-while getopts "vnd:f:" o; do
+while getopts "o:lbvnd:f:" o; do
     case "${o}" in
     v)
         verbose="True"
@@ -19,7 +19,15 @@ while getopts "vnd:f:" o; do
     n)
         net="True"
         ;;
-
+    b)
+        csv="True"
+        ;;
+    l)
+        list_dom="True"
+        ;;
+    o)
+        outputfile=${OPTARG}
+        ;;
     esac
 
 done
@@ -91,7 +99,7 @@ calculate_energy() {
         x = energiesends[i] - energiesbegins[i]
         if (x < 0 )
             {
-                x=x+datamaxenergies[i]
+                x=x+energiesmax[i]
             }
         printf i","names[i]","x";" 
         }
@@ -103,9 +111,7 @@ calculate_energy() {
 #Printing functions
 
 print_time() {
-    beginT=$1
-    endT=$2
-    duration=$((($endT - $beginT) / 1000))
+    duration=$1
 
     echo " ------------------------------------------- "
     echo "|             execution time  (us)          |"
@@ -169,12 +175,71 @@ print_global() {
 
 }
 
+print_global_csv() {
+
+    echo | awk -v data=$1 'BEGIN \
+    {
+        
+        split(data,data1,";");
+        for (line in data1 )  {
+            split(data1[line],line1,",");
+            path=line1[1];
+            name=line1[2];
+            value=line1[3];
+            split(path,path1,":")
+            cpu=path1[2]
+            split(cpu,cpu1,'//')
+            cpu=cpu1[1]
+            energies[name]=energies[name]+value
+        }
+
+        for (i in energies ) {
+           printf ";"toupper(i)";"energies[i]
+        }
+        printf "\n"
+    }'
+
+}
+
+list_global_domains() {
+    echo -n duration
+    echo | awk -v data=$1 'BEGIN \
+    {
+        
+        split(data,data1,";");
+        for (line in data1 )  {
+            split(data1[line],line1,",");
+            path=line1[1];
+            name=line1[2];
+            value=line1[3];
+            split(path,path1,":")
+            cpu=path1[2]
+            split(cpu,cpu1,'//')
+            cpu=cpu1[1]
+            energies[name]=energies[name]+value
+        }
+
+        for (i in energies ) {
+           printf ";"toupper(i)
+        }
+        printf "\n"
+    }'
+
+}
+
 get_raw_energy() {
     begin_energy=$(read_energy)
     beginT=$(date +"%s%N")
 
     ###############################################
-    $@
+    if [ -n $outputfile ]; then
+
+        $@ 2>&1 >>$outputfile
+        exit_code=$?
+    else
+        $@
+        exit_code=$?
+    fi
     ###############################################
     endT=$(date +"%s%N")
     end_energy=$(read_energy)
@@ -182,26 +247,41 @@ get_raw_energy() {
     ### Calculate the energies
 
     energies=$(calculate_energy $begin_energy $end_energy $maxenergies)
-
+    duration=$((($endT - $beginT) / 1000))
     # Remove the last ;
     energies="${energies%;}"
     # Change package with CPU
     energies=$(echo $energies | sed -r 's/package-([0-9]+)/cpu/g')
 
     ## Visualisation
-    print_time $beginT $endT
-    print_header
-    print_global $energies
 
-    if [ -n "$verbose" ]; then
-        print_details $energies
+    if [ -n "$csv" ]; then
+
+        echo -n "duration;"$duration
+        print_global_csv $energies
+    else
+        print_time $duration
+        print_header
+        print_global $energies
+
+        if [ -n "$verbose" ]; then
+            print_details $energies
+        fi
     fi
+    return $exit_code
 }
 ###############################
 maxenergies=$(read_maxenergy)
 
-get_raw_energy $@
+if [ -n "$list_dom" ]; then
+    maxenergies=$(echo $maxenergies | sed -r 's/package-([0-9]+)/cpu/g')
+    list_global_domains $maxenergies
+else
+    get_raw_energy $@
+    exit_code=$?
+fi
 
+exit $exit_code
 # totalsteps=$((duration * frequency))
 # step=$(echo $frequency | awk '{printf 1/$1}')
 # echo $step
