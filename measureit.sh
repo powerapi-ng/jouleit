@@ -26,6 +26,7 @@ while getopts "o:lbvnd:f:" o; do
         list_dom="True"
         ;;
     o)
+        output="True"
         outputfile=${OPTARG}
         ;;
     esac
@@ -89,7 +90,7 @@ calculate_energy() {
     }      
 
     for (i in maxenergies1 ){
-        split(max1[i],datamax,",")
+        split(maxenergies1[i],datamax,",")
         energiesmax[datamax[1]] =datamax[3]
     }      
 
@@ -232,7 +233,7 @@ get_raw_energy() {
     beginT=$(date +"%s%N")
 
     ###############################################
-    if [ -n $outputfile ]; then
+    if [ -n "$outputfile" ]; then
 
         $@ 2>&1 >>$outputfile
         exit_code=$?
