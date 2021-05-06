@@ -2,24 +2,12 @@
 
 # the option -v
 
-duration=5
-
-frequency=1
-while getopts "o:lbvnd:f:" o; do
+while getopts "o:lcv" o; do
     case "${o}" in
     v)
         verbose="True"
         ;;
-    d)
-        duration=${OPTARG}
-        ;;
-    f)
-        frequency=${OPTARG}
-        ;;
-    n)
-        net="True"
-        ;;
-    b)
+    c)
         csv="True"
         ;;
     l)
@@ -283,6 +271,3 @@ else
 fi
 
 exit $exit_code
-# totalsteps=$((duration * frequency))
-# step=$(echo $frequency | awk '{printf 1/$1}')
-# echo $step
