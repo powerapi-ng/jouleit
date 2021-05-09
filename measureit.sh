@@ -1,14 +1,17 @@
 #!/bin/bash
 
 # the option -v
-
-while getopts "o:lcv" o; do
+mode="terminal"
+while getopts "ao:lcv" o; do
     case "${o}" in
     v)
         verbose="True"
         ;;
     c)
-        csv="True"
+        mode="csv"
+        ;;
+    a)
+        mode="append"
         ;;
     l)
         list_dom="True"
@@ -101,19 +104,19 @@ calculate_energy() {
 
 print_time() {
     duration=$1
-
-    echo " ------------------------------------------- "
-    echo "|             execution time  (us)          |"
-    echo " ------------------------------------------- "
-    printf "|             %-30d|\n" $duration
-    echo " ------------------------------------------- "
+    echo ""
+    echo " ----------------------------------------------"
+    echo "|               execution time  (us)           |"
+    echo " ----------------------------------------------"
+    printf "|               %-30d |\n" $duration
+    echo " ---------------------------------------------- "
 
 }
 
 print_header() {
 
-    printf "| CPU    | %-10s | %-19s |\n" "Component" "energy (uJ)"
-    echo " ------------------------------------------- "
+    printf "| Socket    | %-10s | %-19s |\n" "Component" "energy (uJ)"
+    echo " ---------------------------------------------- "
 }
 
 print_details() {
@@ -121,6 +124,7 @@ print_details() {
     echo | awk -v data=$1 'BEGIN \
     {
         split(data,data1,";");
+        asort(data1)
         for (line in data1 )  {
             split(data1[line],line1,",");
             path=line1[1];
@@ -128,17 +132,71 @@ print_details() {
             value=line1[3];
             split(path,path1,":")
             cpu=path1[2]
-            split(cpu,cpu1,'//')
+            split(cpu,cpu1,"/")
             cpu=cpu1[1]
             if (match(name, "package")) { name = "cpu" }
             name =toupper(name)
-            printf "| CPU-%-3d| %-10s | %-19d |\n" ,cpu,name,value
+            printf "| Socket %-3s| %-10s | %-19d |\n" ,cpu,name,value
         }
     }'
-    echo " ------------------------------------------- "
+    echo " ---------------------------------------------- "
 }
 
-print_global() {
+print_csv() {
+
+    echo | awk -v data=$1 'BEGIN \
+    {
+        split(data,data1,";");
+        asort(data1)
+        for (line in data1 )  {
+            split(data1[line],line1,",");
+            path=line1[1];
+            name=line1[2];
+            value=line1[3];
+            split(path,path1,":")
+            cpu=path1[2]
+            split(cpu,cpu1,"/")
+            cpu=cpu1[1]
+            energies[name,cpu]=value
+           
+        }
+        asorti(energies,indices )
+         for (i in indices ) {
+        
+           printf ";"toupper(indices[i])";"energies[indices[i]]
+        }
+        
+    }'
+}
+
+print_append_csv() {
+
+    echo | awk -v data=$1 'BEGIN \
+    {
+        split(data,data1,";");
+        asort(data1)
+        for (line in data1 )  {
+            split(data1[line],line1,",");
+            path=line1[1];
+            name=line1[2];
+            value=line1[3];
+            split(path,path1,":")
+            cpu=path1[2]
+            split(cpu,cpu1,"/")
+            cpu=cpu1[1]
+            energies[name,cpu]=value
+           
+        }
+        asorti(energies,indices )
+         for (i in indices ) {
+        
+           printf ";"energies[indices[i]]
+        }
+        
+    }'
+}
+
+calculate_global() {
 
     echo | awk -v data=$1 'BEGIN \
     {
@@ -155,37 +213,12 @@ print_global() {
             cpu=cpu1[1]
             energies[name]=energies[name]+value
         }
-        for (i in energies ) {
-            # printf "global %s %d \n" ,toupper(i),energies[i] 
-            printf "| Global | %-10s | %-19d |\n" , toupper(i),energies[i]
-        }
-    }'
-    echo " ------------------------------------------- "
-
-}
-
-print_global_csv() {
-
-    echo | awk -v data=$1 'BEGIN \
-    {
         
-        split(data,data1,";");
-        for (line in data1 )  {
-            split(data1[line],line1,",");
-            path=line1[1];
-            name=line1[2];
-            value=line1[3];
-            split(path,path1,":")
-            cpu=path1[2]
-            split(cpu,cpu1,'//')
-            cpu=cpu1[1]
-            energies[name]=energies[name]+value
+       asorti(energies,indices )
+         for (i in indices ) {
+           printf "global:/,"toupper(indices[i])","energies[indices[i]]";"
         }
-
-        for (i in energies ) {
-           printf ";"toupper(i)";"energies[i]
-        }
-        printf "\n"
+    
     }'
 
 }
@@ -207,13 +240,39 @@ list_global_domains() {
             cpu=cpu1[1]
             energies[name]=energies[name]+value
         }
-
-        for (i in energies ) {
-           printf ";"toupper(i)
+        
+        asorti(energies,indices )
+         for (i in indices ) {
+           printf ";"toupper(indices[i])
         }
-        printf "\n"
     }'
 
+}
+
+list_domains() {
+    echo -n duration
+    echo | awk -v data=$1 'BEGIN \
+    {
+        split(data,data1,";");
+        asort(data1)
+        for (line in data1 )  {
+            split(data1[line],line1,",");
+            path=line1[1];
+            name=line1[2];
+            value=line1[3];
+            split(path,path1,":")
+            cpu=path1[2]
+            split(cpu,cpu1,"/")
+            cpu=cpu1[1]
+            energies[name,cpu]=value
+           
+        }
+        asorti(energies,indices )
+         for (i in indices ) {
+           printf ";"toupper(indices[i])
+        }
+
+    }'
 }
 
 get_raw_energy() {
@@ -241,30 +300,60 @@ get_raw_energy() {
     energies="${energies%;}"
     # Change package with CPU
     energies=$(echo $energies | sed -r 's/package-([0-9]+)/cpu/g')
+    # calculat the global energy
+    global_energies=$(calculate_global $energies)
+    global_energies="${global_energies%;}"
 
-    ## Visualisation
-
-    if [ -n "$csv" ]; then
-
-        echo -n "duration;"$duration
-        print_global_csv $energies
+    if [ -n "$verbose" ]; then
+        results=$energies
     else
-        print_time $duration
-        print_header
-        print_global $energies
-
-        if [ -n "$verbose" ]; then
-            print_details $energies
-        fi
+        results=$global_energies
     fi
+
+    results=$results";global:/,exit_code,"$exit_code
+    ## Visualisation
+    case "${mode}" in
+
+    csv)
+        echo -n "duration;"$duration
+        print_csv $results
+        ;;
+    append)
+        echo -n $duration
+        print_append_csv $results
+        ;;
+    *)
+        show_pretty
+        ;;
+    esac
+    echo ""
+
     return $exit_code
 }
+
+show_pretty() {
+
+    print_time $duration
+    print_header
+    print_details $global_energies
+
+    if [ -n "$verbose" ]; then
+        print_details $energies
+    fi
+}
+
 ###############################
 maxenergies=$(read_maxenergy)
 
 if [ -n "$list_dom" ]; then
     maxenergies=$(echo $maxenergies | sed -r 's/package-([0-9]+)/cpu/g')
-    list_global_domains $maxenergies
+    if [ -n "$verbose" ]; then
+        list_domains $maxenergies
+    else
+        list_global_domains $maxenergies
+    fi
+    echo ";EXIT_CODE"
+
 else
     get_raw_energy $@
     exit_code=$?
