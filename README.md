@@ -1,4 +1,4 @@
-# energy-scripts
+# Measureit
 A repository of scripts that can be used to monitor energy consumption for any program.
 
 
