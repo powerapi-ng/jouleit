@@ -26,7 +26,6 @@ while getopts "n:s:bo:lca" o; do
         iterations=${OPTARG}
         ;;
     o)
-        output="True"
         outputfile=${OPTARG}
         ;;
     *)
