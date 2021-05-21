@@ -29,6 +29,8 @@ while getopts "n:s:bo:lca" o; do
         output="True"
         outputfile=${OPTARG}
         ;;
+    *)
+        ;;
     esac
 
 done
