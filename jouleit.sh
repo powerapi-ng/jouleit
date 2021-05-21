@@ -10,7 +10,7 @@ while getopts "n:s:bo:lca" o; do
         allsockets="True"
         ;;
     b)
-        mode="binarry"
+        mode="binary"
         ;;
     c)
         mode="csv"
@@ -219,7 +219,7 @@ print_details() {
 
 ##############################################################
 
-print_binarry() {
+print_binary() {
     energies=$(echo | awk -v data=$1 'BEGIN \
     {
         split(data,data1,";");
@@ -370,9 +370,9 @@ bulk() {
 
 main() {
     case "${mode}" in
-    binarry)
+    binary)
         results=$(get_raw_energy $@)
-        print_binarry "$results"
+        print_binary "$results"
         exit_code=$?
         ;;
     csv)
