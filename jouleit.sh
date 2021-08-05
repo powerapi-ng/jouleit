@@ -310,7 +310,7 @@ calculate_global() {
 
 show_pretty() {
     energies=$1
-    duration=${energies#*duration,}
+    duration=${energies#*DURATION,}
     duration=${duration%%;*}
     print_time $duration
     print_header
