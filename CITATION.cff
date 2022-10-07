@@ -2,7 +2,7 @@ cff-version: 1.2.0
 title: Jouleit
 message: Make your python code green again
 type: software
-year: 2020
+date-released: 2020
 authors:
   - given-names: Mohammed chakib
     family-names: Belgaid
