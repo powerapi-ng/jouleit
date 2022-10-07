@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+title: Pyjoules
+message: Make your python code green again
+type: software
+authors:
+  - given-names: Mohammed chakib
+    family-names: Belgaid
+    email: chakib.belgaid@gmail.com
+    orcid: 'https://orcid.org/0000-0002-5264-7426'
+    affiliation: Inria university of Lille
+  - given-names: Romain
+    family-names: Rouvoy
+    email: romain.rouvoy@inria.fr
+    affiliation: inria university of lille
+    orcid: 'https://orcid.org/0000-0003-1771-8791'
+  - orcid: 'https://orcid.org/0000-0003-0006-6088'
+    affiliation: 'Inria  university of lille '
+    email: lionel.seinturier@univ-lille.fr
+    family-names: Seinturier
+    given-names: Lionel
+identifiers:
+  - type: url
+    value: https://github.com/powerapi-ng/jouleit/
+repository-code: 'https://github.com/powerapi-ng/jouleit/'
+abstract: >-
+  A tool that can be used to monitor energy consumption for any program in linux based systems
