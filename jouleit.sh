@@ -410,12 +410,42 @@ header_csv() {
 }
 
 ###############################
+check_os()
+{
+    #check if the os is linux 
+    if [ "$(uname)" != "Linux" ]; then
+        echo "Sorry, this script is only supported on Linux."
+        exit 1
+    fi
+}
+
+check_rapl()
+{
+    #check if the rapl is enabled
+    if [ ! -d "/sys/devices/virtual/powercap/intel-rapl" ]; then
+        echo "Sorry, RAPL is not enabled on this system."
+        exit 1
+    fi
+    # check if i have the permission to read the rapl
+    if [ ! -r "/sys/devices/virtual/powercap/intel-rapl/intel-rapl:0/energy_uj" ]; then
+        echo "Sorry, you don't have the permission to read the RAPL. please run the script with sudo."
+        exit 1
+    fi
+}
+
+check_compatibility()
+{
+    check_os ; 
+    check_rapl; 
+}
+######
+check_compatibility 
 maxenergies=$(read_maxenergy $socket)
 
 if [ -n "$list_dom" ]; then
     header_csv
 else
-
+   
     main $@
     exit_code=$?
 fi
