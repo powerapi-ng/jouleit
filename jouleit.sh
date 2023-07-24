@@ -527,9 +527,17 @@ check_rapl() {
     fi
 }
 
+check_gawk() {
+    if ! command -v gawk &>/dev/null; then
+        echo "gawk could not be found please install it using the command: sudo apt install gawk in debian or sudo yum install gawk in redhat based systems"
+        exit 1
+    fi
+}
+
 check_compatibility() {
     check_os
     check_rapl
+    check_gawk
 }
 ######
 check_compatibility
