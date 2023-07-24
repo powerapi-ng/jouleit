@@ -1,10 +1,40 @@
 #!/bin/bash
 
+help() {
+    cat <<EOF
+Usage: jouleit [-n <iterations>] [-s <socket>] [-b] [-c] [-l] [-a] [-o <outputfile>]
+
+Measure energy consumption of a system.
+
+Options:
+    -n <iterations>  Measure energy consumption for a specified number of iterations.
+    -s <socket>      Measure energy consumption for a specified socket.
+    -b               Output data in binary format.
+    -c               Output data in CSV format.
+    -l               List all domains.
+    -a               Measure energy consumption for all sockets.
+    -o <outputfile>  Write output to a file.
+    -h               Show this help message and exit.
+
+Examples:
+    Measure energy consumption for all sockets:
+        jouleit -a
+
+    Measure energy consumption for socket 0:
+        jouleit -s 0
+
+    Measure energy consumption for 10 iterations:
+        jouleit -n 10
+
+    Measure energy consumption for all sockets and output data in CSV format:
+        jouleit -a -c
+EOF
+}
 # the option -v
 mode="terminal"
 socket=""
 iterations=""
-while getopts "n:s:bo:lca" o; do
+while getopts "abcln:o:s:h" o; do
     case "${o}" in
     a)
         allsockets="True"
@@ -29,11 +59,78 @@ while getopts "n:s:bo:lca" o; do
         output="True"
         outputfile=${OPTARG}
         ;;
+    h)
+        help
+        exit 0
+        ;;
     esac
 
 done
 
 shift $((OPTIND - 1))
+
+# Generate man function
+generate_man() {
+    cat <<EOF
+    JOULEIT(1)                          User Commands                         JOULEIT(1)
+
+    NAME
+        jouleit - measure energy consumption of a system
+
+    SYNOPSIS
+        jouleit [-n <iterations>] [-s <socket>] [-b] [-c] [-l] [-a] [-o <outputfile>]
+
+    DESCRIPTION
+        jouleit is a tool to measure the energy consumption of a system. It can be used to
+        measure the energy consumption of a single socket or all sockets in the system.
+
+        The options are as follows:
+
+        -n <iterations>
+            Measure energy consumption for a specified number of iterations.
+
+        -s <socket>
+            Measure energy consumption for a specified socket.
+
+        -b     Output data in binary format.
+
+        -c     Output data in CSV format.
+
+        -l     List all domains.
+
+        -a     Measure energy consumption for all sockets.
+
+        -o <outputfile>
+            Write output to a file.
+
+    EXAMPLES
+        Measure energy consumption for all sockets:
+
+            jouleit -a
+
+        Measure energy consumption for socket 0:
+
+            jouleit -s 0
+
+        Measure energy consumption for 10 iterations:
+
+            jouleit -n 10
+
+        Measure energy consumption for all sockets and output data in CSV format:
+
+            jouleit -a -c
+
+    SEE ALSO
+        powerapi(1)
+
+    AUTHORS
+        Chakib Belgaid <chakib.belgaid@gmail.com>
+
+
+
+    JOULEIT(1)                          User Commands                         JOULEIT(1)
+EOF
+}
 
 # Read data
 read_energy() {
@@ -284,7 +381,6 @@ calculate_global() {
 
     echo | awk -v data=$1 'BEGIN \
     {
-        
         split(data,data1,";");
         for (line in data1 )  {
             split(data1[line],line1,",");
@@ -410,17 +506,15 @@ header_csv() {
 }
 
 ###############################
-check_os()
-{
-    #check if the os is linux 
+check_os() {
+    #check if the os is linux
     if [ "$(uname)" != "Linux" ]; then
         echo "Sorry, this script is only supported on Linux."
         exit 1
     fi
 }
 
-check_rapl()
-{
+check_rapl() {
     #check if the rapl is enabled
     if [ ! -d "/sys/devices/virtual/powercap/intel-rapl" ]; then
         echo "Sorry, RAPL is not enabled on this system."
@@ -433,19 +527,18 @@ check_rapl()
     fi
 }
 
-check_compatibility()
-{
-    check_os ; 
-    check_rapl; 
+check_compatibility() {
+    check_os
+    check_rapl
 }
 ######
-check_compatibility 
+check_compatibility
 maxenergies=$(read_maxenergy $socket)
 
 if [ -n "$list_dom" ]; then
     header_csv
 else
-   
+
     main $@
     exit_code=$?
 fi
