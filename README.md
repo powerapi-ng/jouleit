@@ -7,14 +7,10 @@ A repository of scripts that can be used to monitor energy consumption for any p
 Right now **jouleit** uses the Intel "_Running Average Power Limit_" (RAPL) technology that estimates power consumption of the CPU, ram and integrated GPU.
 This technology is available on Intel CPU since the [Sandy Bridge generation](https://fr.wikipedia.org/wiki/Intel#Historique_des_microprocesseurs_produits)(2010).
 
-- *gawk* 
-You can install in debian distributions by running 
-    
-    apt install gawk
 
 # How to use 
 
-    ./jouleit.sh cmd 
+   sudo ./jouleit.sh cmd 
 
 **jouleit** offers a set of options to help benchmarking and testing programs. The avialable options are 
 
