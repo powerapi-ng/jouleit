@@ -1,5 +1,4 @@
 #!/bin/bash
-set -e
 help() {
     cat <<EOF
 Usage: jouleit [-n <iterations>] [-s <socket>] [-b] [-c] [-l] [-a] [-o <outputfile>]
@@ -446,10 +445,10 @@ get_raw_energy() {
     ###############################################
     if [ -n "$outputfile" ]; then
 
-        $($@) 2>&1 >>$outputfile
+        $($@ 2>&1 >>$outputfile)
         exit_code=$?
     else
-        $($@)
+        x=$($@)
         exit_code=$?
     fi
     ###############################################
@@ -568,7 +567,7 @@ check_gawk() {
 check_compatibility() {
     check_os
     check_rapl
-    # check_gawk
+
 }
 ######
 

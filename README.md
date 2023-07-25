@@ -16,16 +16,34 @@ This technology is available on Intel CPU since the [Sandy Bridge generation](ht
 
 ## Flags and options 
 
-|**Flag**|**Description**|**Default value**|
-|------------|---------------|:---------------:|
-| -g | print the details of all sockets instead of the aggregation | False | 
-| -b | print the results in the format of *KEY1:VALUE1;KEY2:VALUE2.. | False | 
-| -l | list all the available domains (CPU, DRAM, etc.) and print them in the form of a header of CSV | |
-| -c | print only the values in CSV format (value1;value2;value3). We recommend using this after running **jouleit** with the -l flag to see the order of the measured values | false | 
-| -s **s0**,**s1**,.. | measure only the energy of the component in the sockets **s1,s2...** | all the available sockets |
-| -o **filename** | redirect the output and the log of the executed program to the file `filename` | current terminal |
-| -n **N** | run the program **N** times and record the measured values in `data1234.csv` file |    | 
-| -h | display the help message | |
+| **Flag**            | **Description**                                                                                                                                                        |     **Default value**     |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-----------------------: |
+| -g                  | print the details of all sockets instead of the aggregation                                                                                                            |           False           |
+| -b                  | print the results in the format of *KEY1:VALUE1;KEY2:VALUE2..                                                                                                          |           False           |
+| -l                  | list all the available domains (CPU, DRAM, etc.) and print them in the form of a header of CSV                                                                         |                           |
+| -c                  | print only the values in CSV format (value1;value2;value3). We recommend using this after running **jouleit** with the -l flag to see the order of the measured values |           false           |
+| -s **s0**,**s1**,.. | measure only the energy of the component in the sockets **s1,s2...**                                                                                                   | all the available sockets |
+| -o **filename**     | redirect the output and the log of the executed program to the file `filename`                                                                                         |     current terminal      |
+| -n **N**            | run the program **N** times and record the measured values in `data1234.csv` file                                                                                      |                           |
+| -h                  | display the help message                                                                                                                                               |                           |
 
 
+# Examples
 
+we want to measure a Python script called `work.py` 
+
+instead of running it like this 
+
+    python work.py 
+![alone](https://github.com/powerapi-ng/jouleit/blob/master/img/example_alone.png)
+
+
+we run it with **jouleit** like this 
+   
+      sudo ./jouleit.sh python work.py 
+
+![the default option ](https://github.com/powerapi-ng/jouleit/blob/master/img/example_default.png)
+if we want to aggregate the results we can use the flag `-g` 
+
+    sudo ./jouleit.sh -g python work.py 
+![aggregated version](https://github.com/powerapi-ng/jouleit/blob/master/img/example_aggregated.png)
