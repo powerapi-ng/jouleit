@@ -32,15 +32,29 @@ EOF
 }
 #utils functions
 
+# Function to sort lines of data by the first and fourth columns.
+# the purpose is to sort the data by the path and the socket number.
+# The function takes a string of data as input and returns the sorted data.
+# Parameters:
+#   $1: data - string of data to be sorted
+# Returns:
+#   The sorted data string.
 sort_lines() {
-    # sort the lines by the first column
+
     data=$1
     sorted_data=$(echo "$data" | tr ';' '\n' | sort -t',' -k1 | sort -t ',' -k4 | tr '\n' ';')
     sorted_data=${sorted_data::-1}
     echo "$sorted_data"
 }
 
+# Function to trim lines of data by removing the socket number and double underscores.
+# The function takes a string of data as input and returns the trimmed data.
+# Parameters:
+#   $1: data - string of data to be trimmed
+# Returns:
+#   The trimmed data string.
 trim_lines() {
+
     data=$1
     data=$(echo "$data" | tr ';' '\n' | sort | tr '\n' ';')
     data=$(echo $data | sed 's/[0-9]\+__//g')
@@ -50,7 +64,6 @@ trim_lines() {
 
 remove_keys() {
     data=$1
-    # data=$(echo "$data" | tr ';' '\n' | sort | tr '\n' ';')
     data=$(echo $data | sed 's/[^;]\+://g')
     echo ${data%;}
     return 0
@@ -65,6 +78,7 @@ retrieve_sockets() {
     sockets=$(ls /sys/devices/virtual/powercap/intel-rapl* | grep -oP '(?<=intel-rapl:)([0-9]+)')
     echo $sockets
 }
+
 # Generate man function
 generate_man() {
     cat <<EOF
@@ -94,7 +108,7 @@ generate_man() {
 
         -l     List all domains.
 
-        -a     Measure energy consumption for all sockets.
+        -g     Measure energy consumption for all sockets.
 
         -o <outputfile>
             Write output to a file.
@@ -477,7 +491,7 @@ bulk() {
 
 }
 
-###############main ###########
+############### main ###########
 
 main() {
     case "${mode}" in
