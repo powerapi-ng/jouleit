@@ -1,5 +1,5 @@
 #!/bin/bash
-
+set -e
 help() {
     cat <<EOF
 Usage: jouleit [-n <iterations>] [-s <socket>] [-b] [-c] [-l] [-a] [-o <outputfile>]
@@ -7,12 +7,12 @@ Usage: jouleit [-n <iterations>] [-s <socket>] [-b] [-c] [-l] [-a] [-o <outputfi
 Measure energy consumption of a system.
 
 Options:
-    -n <iterations>  Measure energy consumption for a specified number of iterations.
-    -s <socket>      Measure energy consumption for a specified socket.
-    -b               Output data in binary format.
+    -n <iterations>  Measure energy consumption for a specified number of iterations then print the output in a single csv file .
+    -s <sockets>     a list of sockets to measure energy consumption for separated by , .
+    -b               Output data in binary format <key:value>.
     -c               Output data in CSV format.
     -l               List all domains.
-    -a               Measure energy consumption for all sockets.
+    -g               aggregate the  energy consumption for all sockets per component.
     -o <outputfile>  Write output to a file.
     -h               Show this help message and exit.
 
@@ -30,44 +30,54 @@ Examples:
         jouleit -a -c
 EOF
 }
-# the option -v
-mode="terminal"
-socket=""
-iterations=""
-while getopts "abcln:o:s:h" o; do
-    case "${o}" in
-    a)
-        allsockets="True"
-        ;;
-    b)
-        mode="binarry"
-        ;;
-    c)
-        mode="csv"
-        ;;
-    l)
-        list_dom="True"
-        ;;
-    s)
-        socket=${OPTARG}
-        ;;
-    n)
-        mode="repeat"
-        iterations=${OPTARG}
-        ;;
-    o)
-        output="True"
-        outputfile=${OPTARG}
-        ;;
-    h)
-        help
-        exit 0
-        ;;
-    esac
+#utils functions
 
-done
+# Function to sort lines of data by the first and fourth columns.
+# the purpose is to sort the data by the path and the socket number.
+# The function takes a string of data as input and returns the sorted data.
+# Parameters:
+#   $1: data - string of data to be sorted
+# Returns:
+#   The sorted data string.
+sort_lines() {
 
-shift $((OPTIND - 1))
+    data=$1
+    sorted_data=$(echo "$data" | tr ';' '\n' | sort -t',' -k1 | sort -t ',' -k4 | tr '\n' ';')
+    sorted_data=${sorted_data::-1}
+    echo "$sorted_data"
+}
+
+# Function to trim lines of data by removing the socket number and double underscores.
+# The function takes a string of data as input and returns the trimmed data.
+# Parameters:
+#   $1: data - string of data to be trimmed
+# Returns:
+#   The trimmed data string.
+trim_lines() {
+
+    data=$1
+    data=$(echo "$data" | tr ';' '\n' | sort | tr '\n' ';')
+    data=$(echo $data | sed 's/[0-9]\+__//g')
+    echo ${data%;}
+    return 0
+}
+
+remove_keys() {
+    data=$1
+    data=$(echo $data | sed 's/[^;]\+://g')
+    echo ${data%;}
+    return 0
+}
+
+error() {
+    echo "ERROR :" $1 >&2
+    exit 1
+}
+
+retrieve_sockets() {
+    sockets=$(ls /sys/devices/virtual/powercap/intel-rapl* | grep -oP '(?<=intel-rapl:)([0-9]+)')
+    echo $sockets
+}
 
 # Generate man function
 generate_man() {
@@ -98,7 +108,7 @@ generate_man() {
 
         -l     List all domains.
 
-        -a     Measure energy consumption for all sockets.
+        -g     Measure energy consumption for all sockets.
 
         -o <outputfile>
             Write output to a file.
@@ -136,33 +146,58 @@ EOF
 read_energy() {
 
     socket=$1
-    components=$(find /sys/devices/virtual/powercap/intel-rapl/intel-rapl:$socket* -name "energy_uj")
-
+    components=$(find /sys/devices/virtual/powercap/intel-rapl/intel-rapl:$socket* -name "energy_uj" 2>/dev/null)
     data=""
     for component in ${components[@]}; do
 
         name=$(cat ${component%energy_uj}/name)
         energy=$(cat $component)
-        data=$data$component,$name,$energy\;
+        data=$data$component,$name,$energy,$socket\;
     done
-    timestamp=$(date +"%s%6N")
-    data="global:/,duration,$timestamp;${data%;}"
+    data="${data%;}"
     echo $data
 }
 
 read_maxenergy() {
     socket=$1
-    components=$(find /sys/devices/virtual/powercap/intel-rapl/intel-rapl:$socket* -name "energy_uj")
-
+    components=$(find /sys/devices/virtual/powercap/intel-rapl/intel-rapl:$socket* -name "energy_uj" 2>/dev/null)
+    if [ -z "$components" ]; then
+        error "No components found for socket $socket"
+    fi
     data=""
     for component in ${components[@]}; do
 
         name=$(cat ${component%energy_uj}/name)
         energy=$(cat ${component%energy_uj}/max_energy_range_uj)
-        data=$data$component,$name,$energy\;
+        data=$data$component,$name,$energy,$socket\;
     done
-    data="global:/,duration,0;${data%;}"
+    data="${data%;}"
     echo $data
+}
+
+read_all_energy() {
+    sockets=$1
+    timestamp=$(date +"%s%6N")
+    data=""
+    for socket in ${sockets[@]}; do
+        data=$data";"$(read_energy $socket)
+    done
+    # data="${data#*;}"
+    data="global:/,DURATION,$timestamp$,99998,${data%;}"
+
+    echo $data
+}
+
+read_all_maxenergy() {
+    sockets=$1
+    data=""
+    for socket in ${sockets[@]}; do
+        data=$data";"$(read_maxenergy $socket)
+    done
+    data="global:/,DURATION,0,99998,${data%;}"
+    data=$(sort_lines "$data")
+    echo $data
+
 }
 
 # Calculate the energyies
@@ -171,6 +206,9 @@ calculate_energy() {
     begins=$1
     ends=$2
     maxenergies=$3
+    begins=$(sort_lines "$begins")
+    ends=$(sort_lines "$ends")
+    maxenergies=$(sort_lines "$maxenergies")
     energies=$(echo | awk -v begins=$begins -v ends=$ends -v maxenergies=$maxenergies 'BEGIN \
     {
     split(ends,ends1,";");
@@ -192,6 +230,7 @@ calculate_energy() {
     for (i in maxenergies1 ){
         split(maxenergies1[i],datamax,",")
         energiesmax[datamax[1]] =datamax[3]
+        socket_number[datamax[1]] =datamax[4]
     }      
 
 
@@ -202,12 +241,13 @@ calculate_energy() {
             {
                 x=x+energiesmax[i]
             }
-        printf i","names[i]","x";" 
+        printf i","names[i]","x","socket_number[i]";" 
         }
 
     }')
     energies="${energies%;}"
     energies=$(echo $energies | sed -r 's/package-([0-9]+)/cpu/g')
+    energies=$(sort_lines "$energies")
     echo $energies
 
 }
@@ -218,27 +258,30 @@ list_domains() {
     dt=$1
     dt=$(echo $dt | sed -r 's/package-([0-9]+)/cpu/g')
     domains=$(echo | awk -v data=$dt 'BEGIN \
-    {
+    {   rank=0
         split(data,data1,";");
-        asort(data1)
         for (line in data1 )  {
             split(data1[line],line1,",");
             path=line1[1];
             name=line1[2];
             value=line1[3];
             split(path,path1,":")
-            cpu=path1[2]
-            split(cpu,cpu1,"/")
-            cpu=cpu1[1]
-            energies[name,cpu]=value
-           
+            cpu=line1[4]
+            if (cpu < 9998 ) {
+                name=name"_"cpu
+            }
+            name = rank"__"name
+            energies[name]=value
+           rank=rank+1
         }
-        asorti(energies,indices )
-         for (i in indices ) {
-           printf toupper(indices[i])";"
+         for (key in energies ) {
+            
+           printf toupper(key)";"
         }
-
+        printf rank"__EXIT_CODE"
     }')
+
+    domains=$(trim_lines "$domains")
     domains="${domains%;}"
     echo $domains
 }
@@ -246,9 +289,10 @@ list_domains() {
 list_global_domains() {
     dt=$1
     dt=$(echo $dt | sed -r 's/package-([0-9]+)/cpu/g')
+    # dt=$(sort_lines "$dt")
     domains=$(echo | awk -v data=$dt 'BEGIN \
     {
-        
+        rank=0
         split(data,data1,";");
         for (line in data1 )  {
             split(data1[line],line1,",");
@@ -256,17 +300,20 @@ list_global_domains() {
             name=line1[2];
             value=line1[3];
             split(path,path1,":")
-            cpu=path1[2]
-            split(cpu,cpu1,'//')
-            cpu=cpu1[1]
-            energies[name]=energies[name]+value
+            if ( energies[name] == "") {
+                # printf rank"__"name","
+                energies[name]=rank"__"name
+                rank=rank+1
+            }
+            # energies[name]=energies[name]+value
+
         }
-        
-        asorti(energies,indices )
-         for (i in indices ) {
-           printf toupper(indices[i])";"
+         for (key in energies ) {
+           printf toupper(energies[key])";"
         }
+        printf rank"__EXIT_CODE"
     }')
+    domains=$(trim_lines "$domains")
     domains="${domains%;}"
     echo $domains
 }
@@ -288,28 +335,31 @@ print_time() {
 print_header() {
 
     printf "| Socket    | %-10s | %-19s |\n" "Component" "energy (J)"
-    echo " ---------------------------------------------- "
+
 }
 
 print_details() {
-
-    echo | awk -v data=$1 'BEGIN \
-    {
+    data=$1
+    # data=$(sort_lines "$data")
+    echo | awk -v data=$data 'BEGIN \
+    {   old_cpu=-1 
         split(data,data1,";");
-        asort(data1)
         for (line in data1 )  {
             split(data1[line],line1,",");
             path=line1[1];
             name=line1[2];
             value=line1[3];
             split(path,path1,":")
-            cpu=path1[2]
-            split(cpu,cpu1,"/")
-            cpu=cpu1[1]
+            cpu=line1[4]
+
             if (match(name, "package")) { name = "cpu" }
             name =toupper(name)
             if ( ! match(name,"DURATION|EXIT_CODE" )) {
-                printf "| Socket %-3s| %-10s | %-19.3f |\n" ,cpu,name,value/1000000
+                if (cpu != old_cpu) {
+                    printf " ---------------------------------------------- \n"
+                    old_cpu=cpu
+                }
+                printf "|   %-7s | %-10s | %-19.3f |\n" ,cpu,name,value/1000000
             }
         }
     }'
@@ -319,11 +369,11 @@ print_details() {
 ##############################################################
 
 print_binarry() {
-
-    energies=$(echo | awk -v data=$1 'BEGIN \
-    {
+    data=$1
+    data=$(sort_lines "$data")
+    energies=$(echo | awk -v data=$data 'BEGIN \
+    {   rank = 0
         split(data,data1,";");
-        asort(data1)
         for (line in data1 )  {
             split(data1[line],line1,",");
             path=line1[1];
@@ -332,54 +382,33 @@ print_binarry() {
             split(path,path1,":")
             cpu=path1[2]
             split(cpu,cpu1,"/")
-            cpu=cpu1[1]
-            energies[name,cpu]=value
-           
+            cpu=line1[4]
+            if ((cpu != "" ) && (cpu < 9998 )) {
+                name=name"_"cpu
+            }
+            name = rank"__"name
+            energies[name]=value
+           rank=rank+1
         }
-        asorti(energies,indices )
-         for (i in indices ) {
-        
-           printf toupper(indices[i])";"energies[indices[i]]";"
+
+        for (key in energies ) {
+           printf toupper(key)":"energies[key]";"
         }
+
+
         
     }')
     energies="${energies%;}"
-    echo $energies
-}
-
-print_append_csv() {
-
-    energies=$(echo | awk -v data=$1 'BEGIN \
-    {
-        split(data,data1,";");
-        asort(data1)
-        for (line in data1 )  {
-            split(data1[line],line1,",");
-            path=line1[1];
-            name=line1[2];
-            value=line1[3];
-            split(path,path1,":")
-            cpu=path1[2]
-            split(cpu,cpu1,"/")
-            cpu=cpu1[1]
-            energies[name,cpu]=value
-           
-        }
-        asorti(energies,indices )
-         for (i in indices ) {
-        
-           printf energies[indices[i]]";"
-        }
-        
-    }')
-    energies="${energies%;}"
+    energies=$(trim_lines "$energies")
+    # energies="${energies%;}"
     echo $energies
 }
 
 ###############################################
 calculate_global() {
-
-    echo | awk -v data=$1 'BEGIN \
+    data=$1
+    # data=$(sort_lines "$data")
+    res=$(echo | awk -v data=$data 'BEGIN \
     {
         split(data,data1,";");
         for (line in data1 )  {
@@ -388,19 +417,16 @@ calculate_global() {
             name=line1[2];
             value=line1[3];
             split(path,path1,":")
-            cpu=path1[2]
-            split(cpu,cpu1,'//')
-            cpu=cpu1[1]
             energies[name]=energies[name]+value
         }
         
-       asorti(energies,indices )
-         for (i in indices ) {
-             
-           printf "global:/,"toupper(indices[i])","energies[indices[i]]";"
+        for (key in energies ) {
+           printf   "global:/,"toupper(key)","energies[key]",;"
         }
     
-    }'
+    }')
+
+    echo $res
 
 }
 
@@ -415,9 +441,8 @@ show_pretty() {
 
 ####################################
 get_raw_energy() {
-    begin_energy=$(read_energy $socket)
-    # beginT=$(date +"%s%N")
 
+    begin_energy=$(read_all_energy $sockets)
     ###############################################
     if [ -n "$outputfile" ]; then
 
@@ -428,8 +453,7 @@ get_raw_energy() {
         exit_code=$?
     fi
     ###############################################
-
-    end_energy=$(read_energy $socket)
+    end_energy=$(read_all_energy $sockets)
 
     ### Calculate the energies
 
@@ -437,16 +461,16 @@ get_raw_energy() {
     energies="${energies%;}"
     energies=$(echo $energies | sed -r 's/package-([0-9]+)/cpu/g')
 
-    global_energies=$(calculate_global $energies)
-    global_energies="${global_energies%;}"
+    if [ -n "$aggregate" ]; then
 
-    if [ -n "$allsockets" ] || [ -n "$socket" ]; then
-        results=$energies
-    else
+        global_energies=$(calculate_global $energies)
+        global_energies="${global_energies%;}"
         results=$global_energies
+    else
+        results=$energies
     fi
 
-    results=$results";global:/,exit_code,"$exit_code
+    results=$results";global:/,exit_code,"$exit_code,99999
     ## Visualisation
     echo $results
     return $exit_code
@@ -467,7 +491,7 @@ bulk() {
 
 }
 
-###############main ###########
+############### main ###########
 
 main() {
     case "${mode}" in
@@ -496,15 +520,22 @@ main() {
 }
 
 header_csv() {
-    maxenergies=$(echo $maxenergies | sed -r 's/package-([0-9]+)/cpu/g')
-    if [ -n "$allsockets" ]; then
-        s=$(list_domains $maxenergies)
-    else
+    maxenergies=$(echo $maxenergies)
+    if [ -n "$aggregate" ]; then
         s=$(list_global_domains $maxenergies)
-    fi
-    echo $s";EXIT_CODE"
-}
 
+    else
+        s=$(list_domains $maxenergies)
+    fi
+    # s=$(sort_lines "$s")
+    echo $s
+}
+print_append_csv() {
+    results=$1
+    results=$(print_binarry $results)
+    results=$(remove_keys "$results")
+    echo $results
+}
 ###############################
 check_os() {
     #check if the os is linux
@@ -537,11 +568,62 @@ check_gawk() {
 check_compatibility() {
     check_os
     check_rapl
-    check_gawk
+    # check_gawk
 }
 ######
+
+# the option -v
+mode="terminal"
+socket=""
+iterations=""
+sockets=$(retrieve_sockets)
+sockets=(${sockets//,/ })
+while getopts "gbcln:o:s:h" o; do
+    case "${o}" in
+    g)
+        aggregate="True"
+        ;;
+    b)
+        mode="binarry"
+        ;;
+    c)
+        mode="csv"
+        ;;
+    l)
+        list_dom="True"
+        ;;
+    s)
+        sockets=${OPTARG}
+        sockets=(${sockets//,/ })
+        if [ ${#sockets[@]} -eq 0 ]; then
+            error "please enter a valid socket number"
+        fi
+        for socket in ${sockets[@]}; do
+            if ! [[ $socket =~ ^[0-9]+$ ]]; then
+                error "please enter a valid socket number"
+            fi
+        done
+        ;;
+    n)
+        mode="repeat"
+        iterations=${OPTARG}
+        ;;
+    o)
+        output="True"
+        outputfile=${OPTARG}
+        ;;
+    h)
+        help
+        exit 0
+        ;;
+    esac
+
+done
+
+shift $((OPTIND - 1))
+
 check_compatibility
-maxenergies=$(read_maxenergy $socket)
+maxenergies=$(read_all_maxenergy $sockets)
 
 if [ -n "$list_dom" ]; then
     header_csv
