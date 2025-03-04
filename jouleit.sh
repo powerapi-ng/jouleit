@@ -1,18 +1,19 @@
 #!/bin/bash
 help() {
     cat <<EOF
-Usage: jouleit [-n <iterations>] [-s <socket>] [-b] [-c] [-l] [-a] [-o <outputfile>]
+Usage: jouleit [-n <iterations> -j <jouleitfile>] [-s <socket>] [-b] [-c] [-l] [-a] [-o <outputfile>]
 
 Measure energy consumption of a system.
 
 Options:
     -n <iterations>  Measure energy consumption for a specified number of iterations then print the output in a single csv file .
+    -j <jouleitfile> Write jouleit iteration (-n flag) output to a specified file.
     -s <sockets>     a list of sockets to measure energy consumption for separated by , .
     -b               Output data in binary format <key:value>.
     -c               Output data in CSV format.
     -l               List all domains.
     -g               aggregate the  energy consumption for all sockets per component.
-    -o <outputfile>  Write output to a file.
+    -o <outputfile>  Write measured command standard outpugit t to a file.
     -h               Show this help message and exit.
 
 Examples:
@@ -87,7 +88,7 @@ generate_man() {
         jouleit - measure energy consumption of a system
 
     SYNOPSIS
-        jouleit [-n <iterations>] [-s <socket>] [-b] [-c] [-l] [-a] [-o <outputfile>]
+        jouleit [-n <iterations> -j <jouleitfile>] [-s <socket>] [-b] [-c] [-l] [-a] [-o <outputfile>]
 
     DESCRIPTION
         jouleit is a tool to measure the energy consumption of a system. It can be used to
@@ -97,6 +98,9 @@ generate_man() {
 
         -n <iterations>
             Measure energy consumption for a specified number of iterations.
+
+        -j <jouleitfile> 
+            Write jouleit iteration (-n flag) output to a specified file.
 
         -s <socket>
             Measure energy consumption for a specified socket.
@@ -110,7 +114,7 @@ generate_man() {
         -g     Measure energy consumption for all sockets.
 
         -o <outputfile>
-            Write output to a file.
+            Write measured command standard output to a file.
 
     EXAMPLES
         Measure energy consumption for all sockets:
@@ -123,7 +127,8 @@ generate_man() {
 
         Measure energy consumption for 10 iterations:
 
-            jouleit -n 10
+            jouleit -n 10               # saves to date##########.csv
+            jouleit -n 10 -j data.csv   # saves to data.csv
 
         Measure energy consumption for all sockets and output data in CSV format:
 
@@ -476,7 +481,7 @@ get_raw_energy() {
 }
 
 bulk() {
-    filename=data$(date +%s).csv
+    filename=${jouleitfile}
     iterations=$((iterations - 1))
     header='iteration;'$(header_csv)
     echo $header >$filename
@@ -577,7 +582,8 @@ socket=""
 iterations=""
 sockets=$(retrieve_sockets)
 sockets=(${sockets//,/ })
-while getopts "gbcln:o:s:h" o; do
+jouleitfile=data$(date +%s).csv # default to date##########.csv
+while getopts "gbcln:j:o:s:h" o; do
     case "${o}" in
     g)
         aggregate="True"
@@ -606,6 +612,9 @@ while getopts "gbcln:o:s:h" o; do
     n)
         mode="repeat"
         iterations=${OPTARG}
+        ;;
+    j) 
+        jouleitfile=${OPTARG} 
         ;;
     o)
         output="True"
