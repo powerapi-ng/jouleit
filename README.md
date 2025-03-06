@@ -23,8 +23,9 @@ This technology is available on Intel CPU since the [Sandy Bridge generation](ht
 | -l                  | list all the available domains (CPU, DRAM, etc.) and print them in the form of a header of CSV                                                                         |                           |
 | -c                  | print only the values in CSV format (value1;value2;value3). We recommend using this after running **jouleit** with the -l flag to see the order of the measured values |           false           |
 | -s **s0**,**s1**,.. | measure only the energy of the component in the sockets **s1,s2...**                                                                                                   | all the available sockets |
-| -o **filename**     | redirect the output and the log of the executed program to the file `filename`                                                                                         |     current terminal      |
-| -n **N**            | run the program **N** times and record the measured values in `data1234.csv` file                                                                                      |                           |
+| -o **ofilename**    | redirect the output and the log of the executed program to the file `ofilename`                                                                                        |                           |
+| -n **N**            | run the program **N** times and record the measured values in `jfilename` file                                                                                         |                           |
+| -j **jfilename**    | redirect the csv formatted output of repeated runs to file `jfilename` file                                                                                            |    date##########.csv     |
 | -h                  | display the help message                                                                                                                                               |                           |
 
 
